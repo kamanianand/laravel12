@@ -1,0 +1,41 @@
+name: Deploy to cPanel via FTP and Run Commands
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code from GitHub
+      uses: actions/checkout@v2
+
+    - name: Install lftp
+      run: sudo apt-get install lftp
+
+    - name: Deploy to cPanel via FTP
+      run: |
+        lftp -f "
+        open ftp://$FTP_SERVER
+        user $FTP_USERNAME $FTP_PASSWORD
+        lcd $GITHUB_WORKSPACE
+        cd public_html
+        mirror -R --delete --verbose
+        "
+      env:
+        FTP_SERVER: ${{ secrets.FTP_SERVER }}
+        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+
+    - name: Run custom commands on cPanel via SSH
+      run: |
+        composer install --ignore-platform-reqs -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+        php artisan optimize:clear
+        
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        SSH_USER: ${{ secrets.SSH_USER }}
+        SSH_HOST: ${{ secrets.SSH_HOST }}
